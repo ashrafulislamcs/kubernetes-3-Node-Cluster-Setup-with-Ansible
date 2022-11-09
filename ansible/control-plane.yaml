@@ -1,0 +1,36 @@
+---
+- hosts: controlplane
+  become: yes
+
+  tasks:
+
+  - name: installing tools
+    ansible.builtin.apt:
+      name:
+        - net-tools
+        - vim
+        - zsh
+  
+  - name: changing zsh to default
+    ansible.builtin.shell: chsh -s /bin/zsh
+
+  - name: pulling required images
+    ansible.builtin.shell:
+      cmd: kubeadm config images pull
+  
+  - name: initializing k8s cluster
+    ansible.builtin.shell:
+      cmd: kubeadm init --apiserver-advertise-address=172.16.0.100 --pod-network-cidr=192.168.0.0/16 >> /root/kubeinit.log
+  
+  - name: applying calico (CNI)
+    ansible.builtin.shell:
+      cmd: kubectl --kubeconfig=/etc/kubernetes/admin.conf create -f https://docs.projectcalico.org/manifests/calico.yaml
+      
+  - name: generate join command
+    ansible.builtin.shell:
+      cmd: kubeadm token create --print-join-command > /joincluster.sh
+  
+  - name: copy join command
+    ansible.builtin.fetch:
+      src: /joincluster.sh
+      dest: ./conf/joincluster.sh

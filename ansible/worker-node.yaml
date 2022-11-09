@@ -1,0 +1,14 @@
+---
+- hosts: nodes
+  become: yes
+
+  tasks:
+
+  - name: copy join command
+    ansible.builtin.copy:
+      src: ./conf/joincluster.sh
+      dest: /joincluster.sh
+
+  - name: run join command
+    ansible.builtin.shell:
+      cmd: bash /joincluster.sh
