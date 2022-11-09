@@ -1,6 +1,5 @@
 [controlplane]
 kmaster
 [nodes]
-wnode1
-wnode2
-wnode3
+kworker1
+kworker2
