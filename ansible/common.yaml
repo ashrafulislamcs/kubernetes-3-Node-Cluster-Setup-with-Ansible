@@ -1,0 +1,115 @@
+---
+- hosts: all
+  become: yes
+  vars:
+    k8s_version: 1.24.0-00
+  
+  tasks:
+
+  - name: deleting swap entries
+    ansible.builtin.shell: sed -i '/swap/d' /etc/fstab
+  
+  - name: running swapoff
+    ansible.builtin.shell: swapoff -a
+  
+  - name: disabling firewall
+    ansible.builtin.shell: systemctl disable --now ufw
+  
+  - name: copying kernel module conf
+    ansible.builtin.copy:
+      src: ./conf/containerd.conf
+      dest: /etc/modules-load.d/containerd.conf
+  
+  - name: enable and load overlay
+    ansible.builtin.shell: modprobe overlay
+    
+  - name: enable and load br_netfilter
+    ansible.builtin.shell: modprobe br_netfilter
+  
+  - name: add kernel settings
+    ansible.builtin.copy:
+      src: ./conf/kubernetes.conf
+      dest: /etc/sysctl.d/kubernetes.conf
+  
+  - name: loading kernel settings
+    ansible.builtin.shell: sysctl --system
+  
+  - name: update and upgrade system
+    ansible.builtin.apt:
+      update_cache: yes
+      cache_valid_time: 86400
+  
+  - name: install containerd
+    ansible.builtin.apt:
+      name:
+        - containerd
+        - apt-transport-https
+      state: latest
+      update_cache: true
+
+  - name: creating containerd
+    ansible.builtin.file:
+      name: /etc/containerd
+      state: directory
+  
+  - name: generating containerd config
+    ansible.builtin.shell:
+      cmd: containerd config default > /etc/containerd/config.toml
+
+  - name: setting system cgroup
+    ansible.builtin.shell:
+      cmd: sed -i 's/SystemdCgroup \= false/SystemdCgroup \= true/g' /etc/containerd/config.toml
+
+  - name: restart containerd
+    ansible.builtin.systemd:
+      name: containerd
+      state: restarted
+      enabled: yes
+  
+  - name: adding kubernetes apt key
+    ansible.builtin.apt_key:
+      url: https://packages.cloud.google.com/apt/doc/apt-key.gpg
+      state: present
+  
+  - name: adding kubernetes repository
+    ansible.builtin.apt_repository:
+      repo: deb http://apt.kubernetes.io/ kubernetes-xenial main 
+      state: present
+      filename: kubernetes
+      mode: 0600
+  
+  - name: update apt cache
+    ansible.builtin.apt:
+      update_cache: yes
+
+  - name: installing kubeadm kubelet kubectl
+    ansible.builtin.apt:
+      name:
+        - kubeadm={{k8s_version}}
+        - kubelet={{k8s_version}}
+        - kubectl={{k8s_version}}
+      state: present
+  
+  - name: ssh password authentication
+    ansible.builtin.shell:
+      cmd: sed -i 's/^PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+  
+  - name: ssh password authentication
+    ansible.builtin.shell:
+      cmd: echo 'PermitRootLogin yes' >> /etc/ssh/sshd_config
+
+  - name: setting root password
+    ansible.builtin.shell: echo -e "admin\nadmin" | passwd root
+  
+  - name: installing necessary softwares
+    ansible.builtin.apt:
+      name:
+        - curl
+        - vim
+        - net-tools
+        - htop
+
+  - name: copy hosts file
+    ansible.builtin.copy:
+      src: ./conf/hosts
+      dest: /etc/hosts
