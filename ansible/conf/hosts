@@ -1,0 +1,4 @@
+172.16.0.100   kmaster.example.com        kmaster
+172.16.0.101   wnode1.example.com    wnode1
+172.16.0.102   wnode2.example.com    wnode2
+172.16.0.103   wnode3.example.com    wnode3
